@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bebold Boramae 예약 현황</title>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Noto Sans KR', sans-serif; }
+        body { background-color: #f1f5f9; color: #1e293b; padding: 40px 20px; min-height: 100vh; }
+        
+        .container { 
+            max-width: 1000px; margin: 0 auto; background: white; padding: 40px 30px; 
+            border-radius: 16px; box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.05);
+            border: 1px solid #e2e8f0; 
+        }
+        
+        h1 { font-size: 24px; margin-bottom: 25px; color: #0f172a; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 15px; }
+        .header-title-area { display: flex; align-items: center; gap: 12px; }
+        .logo-img { height: 50px; object-fit: contain; mix-blend-mode: multiply; }
+        
+        .status-container { display: flex; flex-direction: column; gap: 8px; margin-bottom: 25px; background: #f8fafc; padding: 16px 20px; border-radius: 12px; border: 1px solid #e2e8f0; }
+        .status-meta-row { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; font-size: 15px; }
+        .date-display { font-weight: 700; color: #0f172a; background: #e2e8f0; padding: 6px 14px; border-radius: 8px; }
+        .total-counter { font-weight: 700; color: #ffffff; background: #0284c7; padding: 6px 14px; border-radius: 8px; }
+        .session-counters { display: flex; gap: 8px; font-weight: 600; font-size: 13px; }
+        .counter-badge { padding: 4px 10px; border-radius: 6px; border: 1px solid; }
+        .counter-badge.morning { background-color: #fff7ed; color: #ea580c; border-color: #ffedd5; }
+        .counter-badge.afternoon { background-color: #f0f9ff; color: #0284c7; border-color: #e0f2fe; }
+
+        .board-card { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; padding: 24px; margin-bottom: 30px; }
+        .board-card-title { font-size: 16px; font-weight: 700; margin-bottom: 20px; color: #334155; }
+        .section-subtitle { font-size: 14px; font-weight: 700; margin: 15px 0 10px 0; padding-bottom: 5px; border-bottom: 1px solid #e2e8f0; }
+        .section-subtitle.morning-title { color: #ea580c; }
+        .section-subtitle.afternoon-title { color: #0284c7; }
+        
+        .time-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 14px; margin-bottom: 20px; }
+        .time-card { background: white; border: 1px solid #e2e8f0; border-radius: 10px; padding: 14px; }
+        .time-card-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; font-weight: 700; }
+        .count-badge { background: #0f172a; color: white; padding: 2px 8px; border-radius: 10px; font-size: 11px; }
+        
+        .student-list { display: flex; flex-wrap: wrap; gap: 6px; }
+
+        .student-name-tag { 
+            position: relative; background: #f1f5f9; color: #334155; padding: 4px 10px; border-radius: 6px; 
+            font-size: 13px; font-weight: 500; border: 1px solid #e2e8f0; cursor: pointer; user-select: none;
+        }
+        .student-name-tag:hover { background: #e2e8f0; }
+
+        .student-name-tag .tooltip-box {
+            visibility: hidden; width: 200px; background-color: #1e293b; color: #fff; text-align: left;
+            border-radius: 8px; padding: 10px 12px; position: absolute; z-index: 10; bottom: 130%;
+            left: 50%; transform: translateX(-50%); box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            font-size: 11px; line-height: 1.6; opacity: 0; transition: opacity 0.2s ease;
+        }
+        .student-name-tag .tooltip-box::after {
+            content: ""; position: absolute; top: 100%; left: 50%; margin-left: -5px;
+            border-width: 5px; border-style: solid; border-color: #1e293b transparent transparent transparent;
+        }
+        .student-name-tag:hover .tooltip-box, .student-name-tag.active .tooltip-box { visibility: visible; opacity: 1; }
+
+        .table-title-area { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; flex-wrap: wrap; gap: 10px; }
+        .table-title { font-size: 18px; font-weight: 700; color: #334155; }
+        .right-buttons { display: flex; gap: 10px; }
+        .reset-sort-btn { background-color: #ffffff; color: #475569; border: 1px solid #cbd5e1; padding: 6px 14px; border-radius: 6px; cursor: pointer; font-size: 13px; font-weight: 500; }
+        .reset-sort-btn:hover { background-color: #f1f5f9; color: #0f172a; }
+
+        .table-container { background: white; border-radius: 10px; border: 1px solid #e2e8f0; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+        table { width: 100%; border-collapse: collapse; min-width: 900px; } 
+        th, td { padding: 15px 18px; text-align: left; border-bottom: 1px solid #e2e8f0; }
+        th { background-color: #f8fafc; color: #475569; font-weight: 700; font-size: 14px; }
+        th.sortable { cursor: pointer; user-select: none; }
+        
+        .badge { display: inline-block; padding: 4px 10px; border-radius: 12px; font-size: 12px; font-weight: 600; }
+        .badge.normal { background-color: #dcfce7; color: #16a34a; }
+        .badge.change { background-color: #fef9c3; color: #ca8a04; }
+        .badge.cancel { background-color: #fee2e2; color: #dc2626; }
+        .badge.deleted { background-color: #f1f5f9; color: #64748b; border: 1px dashed #cbd5e1; }
+        .note-text { color: #ea580c; font-weight: 600; font-size: 13px; }
+        .reg-time-text { color: #475569; font-weight: 500; font-size: 13px; }
+        .refresh-btn { background-color: #0284c7; color: white; border: none; padding: 10px 18px; border-radius: 8px; cursor: pointer; font-size: 14px; font-weight: 600; transition: background 0.2s; }
+
+        @media (max-width: 768px) {
+            body { padding: 15px 10px; }
+            .container { padding: 20px 15px; }
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>
+        <div class="header-title-area">
+            <img src="bebold_borame_logo.png" alt="Logo" class="logo-img" onerror="this.onerror=null; this.src='스크린샷 2026-07-10 152428.png';">
+            <span>Bebold Boramae 예약 현황</span>
+        </div>
+        <button id="refresh-btn" class="refresh-btn" onclick="loadTodayData()">🔄 새로고침</button>
+    </h1>
+    
+    <div class="status-container">
+        <div class="status-meta-row">
+            <span class="date-display" id="today-date-txt">조회 중...</span>
+            <span class="total-counter" id="total-count-txt">총 예약: 0명</span>
+            <div class="session-counters">
+                <span class="counter-badge morning" id="morning-count-txt">오전 타임: 0명</span>
+                <span class="counter-badge afternoon" id="afternoon-count-txt">오후 타임: 0명</span>
+            </div>
+        </div>
+    </div>
+
+    <div class="board-card">
+        <div class="board-card-title">⏱️ 예약자 현황판</div>
+        <div class="section-subtitle morning-title">☀️ 오전 타임 예약자 (06:30 ~ 12:00)</div>
+        <div class="time-grid" id="morning-cards-container"></div>
+        <div class="section-subtitle afternoon-title">🌙 오후 타임 예약자 (18:00 ~ 21:30)</div>
+        <div class="time-grid" id="afternoon-cards-container"></div>
+    </div>
+
+    <div class="table-title-area">
+        <div class="table-title">예약자 리스트</div>
+        <button class="reset-sort-btn" onclick="resetToOriginalSort()">↩️ 정렬 초기화 (신청 순서로)</button>
+    </div>
+    
+    <div class="table-container">
+        <table>
+            <thead>
+                <tr>
+                    <th>회원명</th>
+                    <th>예약 날짜</th>
+                    <th class="sortable" onclick="toggleSort('res_time')">예약 시간 ↕</th>
+                    <th class="sortable" onclick="toggleSort('reg_time')">작성시간 ↕</th>
+                    <th>휴대폰 뒷자리</th>
+                    <th class="sortable" onclick="toggleSort('status')">예약 상태 ↕</th>
+                    <th>특이사항 (변경 기록)</th>
+                </tr>
+            </thead>
+            <tbody id="list-target">
+                <tr><td colspan="7" style="text-align:center; color:#94a3b8;">데이터를 불러오는 중입니다...</td></tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<script>
+    const SUPABASE_URL = "https://gqrcvmlkldvdejplbsdh.supabase.co"; 
+    const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdxcmN2bWxrbGR2ZGVqcGxic2RoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODM2MTkzNTMsImV4cCI6MjA5OTE5NTM1M30.R2ww-seXYkJV7nVGBU_JJqFD9QY8gT2OtURqdXvRnGE";         
+    
+    let supabaseClient = null;
+    let localCachedData = [];      
+    let originalServerData = [];   
+    let isAscending = { res_time: true, status: true, reg_time: true };
+
+    function initSupabase() { if (!supabaseClient) supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY); }
+
+    async function loadTodayData() {
+        const btn = document.getElementById('refresh-btn');
+        btn.innerText = "🔄 새로고침 완료!";
+        setTimeout(() => btn.innerText = "🔄 새로고침", 2000);
+
+        initSupabase();
+        const localDate = new Date();
+        const dateStr = `${localDate.getFullYear()}-${String(localDate.getMonth() + 1).padStart(2, '0')}-${String(localDate.getDate()).padStart(2, '0')}`;
+        const week = ['일', '월', '화', '수', '목', '금', '토'];
+        document.getElementById('today-date-txt').innerText = `${dateStr} (${week[localDate.getDay()]}요일)`;
+        
+        try {
+            const { data } = await supabaseClient.from('reservations').select('*').eq('res_date', dateStr).order('attendance_key', { ascending: true });
+            localCachedData = data || [];
+            originalServerData = [...localCachedData];
+            renderTableRows(localCachedData);
+            updateDashboard();
+        } catch (e) {}
+    }
+
+    function renderTableRows(dataList) {
+        const tbody = document.getElementById('list-target');
+        tbody.innerHTML = '';
+        dataList.forEach(row => {
+            let badgeClass = row.status === '변경' ? 'change' : row.status === '취소' ? 'cancel' : row.status === '취소(삭제함)' ? 'deleted' : 'normal';
+            tbody.innerHTML += `<tr><td><b>${row.student_name}</b></td><td>${row.res_date}</td><td>${formatReservationTime(row.res_time, row.student_name, row.note)}</td><td><span class="reg-time-text">⏱️ ${parseExtractedRegTime(row.note)}</span></td><td>${row.phone_tail}</td><td><span class="badge ${badgeClass}">${row.status}</span></td><td><span class="note-text">${cleanNoteContent(row.note) || '-'}</span></td></tr>`;
+        });
+    }
+
+    function updateDashboard() {
+        const morningGrid = document.getElementById('morning-cards-container');
+        const afternoonGrid = document.getElementById('afternoon-cards-container');
+        morningGrid.innerHTML = ''; afternoonGrid.innerHTML = '';
+        let mCount = 0, aCount = 0, total = 0, groups = {};
+
+        localCachedData.forEach(row => {
+            if (row.status === '정상 예약' || row.status === '변경') {
+                total++;
+                let time = formatReservationTime(row.res_time, row.student_name, row.note);
+                if (!groups[time]) groups[time] = [];
+                groups[time].push({ name: row.student_name, phone: row.phone_tail || '없음', reg: parseExtractedRegTime(row.note), note: cleanNoteContent(row.note) || '없음' });
+                const [h, m] = time.split(':').map(Number);
+                (h * 60) + m <= 900 ? mCount++ : aCount++;
+            }
+        });
+
+        Object.keys(groups).sort().forEach(time => {
+            let tags = groups[time].map(s => `<span class="student-name-tag" onclick="this.classList.toggle('active')">${s.name}<div class="tooltip-box">📱 번호: ${s.phone}<br>⏱️ 작성시간: ${s.reg}<br>📝 특이사항: ${s.note}</div></span>`).join('');
+            const card = `<div class="time-card"><div class="time-card-header"><span>⏰ ${time}</span><span class="count-badge">${groups[time].length}명</span></div><div class="student-list">${tags}</div></div>`;
+            const [h] = time.split(':').map(Number);
+            h * 60 <= 900 ? morningGrid.innerHTML += card : afternoonGrid.innerHTML += card;
+        });
+        document.getElementById('total-count-txt').innerText = `총 예약: ${total}명`;
+        document.getElementById('morning-count-txt').innerText = `오전 타임: ${mCount}명`;
+        document.getElementById('afternoon-count-txt').innerText = `오후 타임: ${aCount}명`;
+    }
+
+    function formatReservationTime(t, n, note) { /* 기존 로직 유지 */ let c = (t||'').trim().replace(':',''); if(/^\d{1,2}$/.test(c)) return `${c.padStart(2,'0')}:00`; if(/^\d{3}$/.test(c)) return "0"+c[0]+":"+c.slice(1); if(/^\d{4}$/.test(c)) return c.slice(0,2)+":"+c.slice(2); return t || "00:00"; }
+    function parseExtractedRegTime(n) { const m = (n||'').match(/^\[작성:\s*([^\]]+)\]/); return m ? m[1] : "-"; }
+    function cleanNoteContent(n) { return (n||'').replace(/^\[작성:\s*[^\]]+\]\s*/, "").trim(); }
+    function toggleSort(f) { isAscending[f] = !isAscending[f]; localCachedData.sort((a,b) => (isAscending[f] ? 1 : -1) * ((a[f]||'').localeCompare(b[f]||''))); renderTableRows(localCachedData); }
+    function resetToOriginalSort() { localCachedData = [...originalServerData]; renderTableRows(localCachedData); }
+
+    loadTodayData();
+</script>
+</body>
+</html>
