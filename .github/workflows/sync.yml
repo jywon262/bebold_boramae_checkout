@@ -1,4 +1,5 @@
 name: Boramae Sync
+
 on:
   schedule:
     - cron: '*/5 * * * *'
